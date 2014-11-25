@@ -27,22 +27,3 @@ Or alternatively, after making sure that [cmake](http://www.cmake.org/) is insta
     make deps
     make
     sudo make install
-
-
-## Aliases
-
-The goal here is that I can continue typing `g b`, but instead of getting the default `git branch` behaviour, I get the `gb` output.
-
-In my shell, I've always had this alias defined: `alias g='git'`
-
-My `~/.gitconfig` used to look like this:
-
-    [alias]
-      b    = branch
-
-and now it looks like this:
-
-    [alias]
-      b    = !gb
-
-The `!` is to let git know that `gb` is not a standard `git-*` subcommand.
