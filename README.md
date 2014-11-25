@@ -1,6 +1,6 @@
 # gb
 
-List branches with additional information similar to the GitHub branches view.
+List local branches with additional information similar to the GitHub branches view.
 
 * the timestamp of the last revision
 * branch name
