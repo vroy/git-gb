@@ -22,7 +22,7 @@ fi
 
 wget https://github.com/exploid/gb/archive/v0.0.1.tar.gz
 tar xzf v0.0.1.tar.gz
-cd v0.0.1
+cd gb-0.0.1
 
 make deps
 make
