@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+if which cmake >/dev/null
+then
+    echo 'cmake is installed.'
+
+elif which apt-get >/dev/null
+then
+    echo 'installing cmake with apt-get'
+    sudo apt-get install cmake
+
+elif which brew >/dev/null
+then
+    echo 'installing cmake with brew'
+    brew install cmake
+
+else
+    echo 'Could not install cmake. Make sure that cmake is installed and in your $PATH.'
+    exit 1
+
+fi
+
+# wget {{link}}.tar.gz
+# tar xzf {{filename}}.tar.gz
+# cd {{filename}}.tar.gz
+
+make deps
+make
+sudo make install
