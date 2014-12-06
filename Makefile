@@ -38,26 +38,36 @@ run: clean force build install
 	gb
 
 clean:
-	rm -rf build/
+	@rm -rf build/
 
 deps: clean
-	mkdir -p build && \
-	cd build && \
-	wget http://www.digip.org/jansson/releases/jansson-2.7.tar.gz && \
-	tar xzf jansson-2.7.tar.gz && \
-	cd jansson-2.7 && \
-	./configure && \
-	make && \
-	make check && \
-	echo "sudo password require for 'sudo make install' in jansson" && \
-	sudo make install
+	@if [ `pkg-config --modversion libgit2` == "0.21.2" ]; then \
+		echo "libgit2 was found - skipping installation"; \
+	else \
+		echo "installing libgit2" && \
+		mkdir -p build && \
+		cd build && \
+		wget http://www.digip.org/jansson/releases/jansson-2.7.tar.gz && \
+		tar xzf jansson-2.7.tar.gz && \
+		cd jansson-2.7 && \
+		./configure && \
+		make && \
+		make check && \
+		echo "sudo password required for 'sudo make install' in jansson" && \
+		sudo make install; \
+	fi; \
 
-	mkdir -p build && \
-	cd build && \
-	wget https://github.com/libgit2/libgit2/archive/v0.21.2.tar.gz && \
-	tar xzf v0.21.2.tar.gz && \
-	cd libgit2-0.21.2 && \
-	mkdir build && \
-	cd build && \
-	cmake .. && \
-	cmake --build .
+	@if [ `pkg-config --modversion jansson` == "2.7" ]; then \
+		echo "jansson was found - skipping installation"; \
+	else \
+		echo "installing jansson" && \
+		mkdir -p build && \
+		cd build && \
+		wget https://github.com/libgit2/libgit2/archive/v0.21.2.tar.gz && \
+		tar xzf v0.21.2.tar.gz && \
+		cd libgit2-0.21.2 && \
+		mkdir build && \
+		cd build && \
+		cmake .. && \
+		cmake --build .; \
+	fi
