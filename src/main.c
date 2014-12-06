@@ -28,6 +28,10 @@ git_repository *gb_repo;
 json_t *gb_json;
 char *gb_cache_path;
 
+char *RED = "\e[0;31m";
+char *YELLOW = "\e[0;33m";
+char *GREEN = "\e[0;32m";
+
 void gb_git_check_return(int rc, char *msg) {
   if (rc != 0) {
     fprintf(stderr, "%s. Code: %d\n", msg, rc);
@@ -82,6 +86,7 @@ typedef struct gb_comparison {
   long timestamp;
   int ahead;
   int behind;
+  int is_head;
 } gb_comparison;
 
 void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
@@ -100,6 +105,9 @@ void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
   memset(comp->reference_name, '\0', 200);
   strcat(comp->reference_name, "refs/heads/");
   strcat(comp->reference_name, comp->name);
+
+  // Choose color of output.
+  comp->is_head = git_branch_is_head(ref);
 
   // Find tip oid.
   rc = git_reference_name_to_id(&comp->tip_oid, gb_repo, comp->reference_name);
@@ -150,18 +158,32 @@ void gb_comparison_execute(gb_comparison *comp) {
   comp->behind = gb_rev_count(comp->tip, comp->master_tip);
 }
 
+
+// Returns a pointer to the color constant based on some very basic rules.
+char* gb_output_color(gb_comparison *comp) {
+  if ( !isatty(fileno(stdout)) ) return "";
+
+  time_t rawtime = comp->timestamp;
+  time_t now = time(0);
+  int one_week = (14 * 24 * 60 * 60);
+
+  if (comp->is_head) {
+    return GREEN;
+  } else if ( rawtime > (now - one_week) ) {
+    return YELLOW;
+  } else {
+    return RED;
+  }
+}
+
 void gb_comparison_print(gb_comparison *comp) {
-  if (comp->timestamp <= 0) return;
-
-  if (comp->ahead == 0 && comp->behind == 0) return;
-
   char formatted_time[80];
   time_t rawtime = comp->timestamp;
   struct tm * timeinfo = localtime(&rawtime);
-
   strftime(formatted_time, 80, "%F %H:%M%p", timeinfo);
 
-  printf("%s | %-40.40s | behind: %4d | ahead: %4d\n",
+  printf("%s%s | %-40.40s | behind: %4d | ahead: %4d\n",
+         gb_output_color(comp),
          formatted_time,
          comp->name,
          comp->behind,
@@ -196,9 +218,6 @@ void print_last_branches() {
   qsort(comps, branch_count, sizeof(*comps), gb_comparison_desc_timestamp_sort);
 
   for (int i = 0; i < branch_count; i++) {
-    if ( strcmp(comps[i]->name, "master") == 0 ) continue;
-    if ( strcmp(comps[i]->name, "") == 0 ) continue;
-
     gb_comparison_execute(comps[i]);
     gb_comparison_print(comps[i]);
   }
