@@ -41,10 +41,10 @@ clean:
 	@rm -rf build/
 
 deps: clean
-	@if [ `pkg-config --modversion libgit2` == "0.21.2" ]; then \
-		echo "libgit2 was found - skipping installation"; \
+	@if [ `pkg-config --modversion jansson` == "2.7" ]; then \
+		echo "jansson was found - skipping installation"; \
 	else \
-		echo "installing libgit2" && \
+		echo "installing jansson" && \
 		mkdir -p build && \
 		cd build && \
 		wget http://www.digip.org/jansson/releases/jansson-2.7.tar.gz && \
@@ -57,10 +57,11 @@ deps: clean
 		sudo make install; \
 	fi; \
 
-	@if [ `pkg-config --modversion jansson` == "2.7" ]; then \
-		echo "jansson was found - skipping installation"; \
+
+	@if [ `pkg-config --modversion libgit2` == "0.21.2" ]; then \
+		echo "libgit2 was found - skipping installation"; \
 	else \
-		echo "installing jansson" && \
+		echo "installing libgit2" && \
 		mkdir -p build && \
 		cd build && \
 		wget https://github.com/libgit2/libgit2/archive/v0.21.2.tar.gz && \
