@@ -58,15 +58,15 @@ deps: clean
 	fi; \
 
 
-	@if [ `pkg-config --modversion libgit2` == "0.21.2" ]; then \
+	@if [ `pkg-config --modversion libgit2` == "0.21.3" ]; then \
 		echo "libgit2 was found - skipping installation"; \
 	else \
 		echo "installing libgit2" && \
 		mkdir -p build && \
 		cd build && \
-		wget https://github.com/libgit2/libgit2/archive/v0.21.2.tar.gz && \
-		tar xzf v0.21.2.tar.gz && \
-		cd libgit2-0.21.2 && \
+		wget https://github.com/libgit2/libgit2/archive/v0.21.3.tar.gz && \
+		tar xzf v0.21.3.tar.gz && \
+		cd libgit2-0.21.3 && \
 		mkdir build && \
 		cd build && \
 		cmake .. && \
