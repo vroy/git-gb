@@ -31,7 +31,7 @@ enum { false, true };
 git_repository *gb_repo;
 json_t *gb_json;
 char *gb_cache_path;
-int *ahead_filter;
+int ahead_filter = -1;
 
 char *RED = "\e[0;31m";
 char *YELLOW = "\e[0;33m";
@@ -195,12 +195,9 @@ void gb_comparison_print(gb_comparison *comp) {
          comp->ahead);
 }
 
-bool gb_is_filtered_branch(gb_comparison *comp) {
-  if (ahead_filter == NULL || comp->ahead == *ahead_filter) {
-    return true;
-  } else {
-    return false;
-  }
+bool gb_branch_filter_check(gb_comparison *comp) {
+  if (ahead_filter == -1) return true;
+  return (comp->ahead == ahead_filter);
 }
 
 
@@ -232,7 +229,7 @@ void print_last_branches() {
 
   for (int i = 0; i < branch_count; i++) {
     gb_comparison_execute(comps[i]);
-    if (gb_is_filtered_branch(comps[i])) {
+    if (gb_branch_filter_check(comps[i])) {
       gb_comparison_print(comps[i]);
     }
   }
@@ -292,15 +289,11 @@ git_repository* gb_git_repo_new() {
 int main(int argc, char **args) {
   //Parse arguments.
   int opt;
-  int ahead_option;
   while ((opt = getopt(argc, args, "a:")) != -1) {
     switch(opt){
     case 'a':
-      ahead_option = atoi(optarg);
-      ahead_filter = &ahead_option;
+      ahead_filter = atoi(optarg);
       break;
-    default:
-      printf("option not found");
     }
   }
 
