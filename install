@@ -24,6 +24,6 @@ wget https://github.com/exploid/gb/archive/v0.0.3.tar.gz
 tar xzf v0.0.3.tar.gz
 cd gb-0.0.3
 
-make deps
+sudo make deps
 make
 sudo make install
