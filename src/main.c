@@ -44,53 +44,17 @@ void gb_git_check_return(int rc, char *msg) {
   }
 }
 
-int gb_rev_count(char *one, char *two) {
-  if ( strcmp(one, two) == 0) {
-    return 0;
-  }
-
-  char *range = malloc( (strlen(one) + strlen(two) + 3) * sizeof(char));
-  sprintf(range, "%s..%s", one, two);
-
-  // Return value read from cache if found.
-  json_t *object = json_object_get(gb_json, range);
-  if (json_is_number(object)) {
-    return json_integer_value(object);
-  }
-
-  // Find value.
-  int rc;
-  git_revwalk *walker;
-  git_oid next_commit;
-  int count = 0;
-
-  rc = git_revwalk_new(&walker, gb_repo);
-  gb_git_check_return(rc, "new revwalk");
-
-  rc = git_revwalk_push_range(walker, range);
-  gb_git_check_return(rc, range);
-
-  while (!git_revwalk_next(&next_commit, walker)) {
-    count++;
-  }
-
-  // Cache count in JSON tree.
-  json_object_set(gb_json, range, json_integer(count));
-
-  git_revwalk_free(walker);
-  return count;
-}
-
 
 typedef struct gb_comparison {
   char tip[41];
   char master_tip[41];
   git_oid tip_oid;
+  git_oid master_oid;
   char name[200];
   char reference_name[200];
   long timestamp;
-  int ahead;
-  int behind;
+  size_t ahead;
+  size_t behind;
   int is_head;
 } gb_comparison;
 
@@ -120,10 +84,9 @@ void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
   git_oid_tostr(comp->tip, 41, &comp->tip_oid);
 
   // Keep reference to master_tip that we're comparing to.
-  git_oid master_oid;
-  rc = git_reference_name_to_id(&master_oid, gb_repo, "refs/heads/master");
+  rc = git_reference_name_to_id(&comp->master_oid, gb_repo, "refs/heads/master");
   gb_git_check_return(rc, "Can't find branch tip id.");
-  git_oid_tostr(comp->master_tip, 41, &master_oid);
+  git_oid_tostr(comp->master_tip, 41, &comp->master_oid);
 
   // Find commit based on tip oid.
   git_commit *commit;
@@ -159,8 +122,20 @@ int gb_comparison_desc_timestamp_sort(const void *a, const void *b) {
 
 
 void gb_comparison_execute(gb_comparison *comp) {
-  comp->ahead  = gb_rev_count(comp->master_tip, comp->tip);
-  comp->behind = gb_rev_count(comp->tip, comp->master_tip);
+  char *range = malloc( (strlen(comp->tip) + strlen(comp->master_tip) + 3) * sizeof(char));
+  sprintf(range, "%s..%s", comp->tip, comp->master_tip);
+
+  json_t *object = json_object_get(gb_json, range);
+  if (json_is_object(object)) {
+    json_unpack(object, "{sIsI}",
+                "ahead", &comp->ahead,
+                "behind", &comp->behind);
+
+  } else {
+    git_graph_ahead_behind(&comp->ahead, &comp->behind, gb_repo, &comp->master_oid, &comp->tip_oid);
+
+    json_object_set(gb_json, range, json_pack("{sIsI}", "ahead", comp->ahead, "behind", comp->behind));
+  }
 }
 
 
@@ -187,7 +162,7 @@ void gb_comparison_print(gb_comparison *comp) {
   struct tm * timeinfo = localtime(&rawtime);
   strftime(formatted_time, 80, "%F %H:%M%p", timeinfo);
 
-  printf("%s%s | %-40.40s | behind: %4d | ahead: %4d\n",
+  printf("%s%s | %-40.40s | behind: %4lu | ahead: %4lu\n",
          gb_output_color(comp),
          formatted_time,
          comp->name,
@@ -195,11 +170,13 @@ void gb_comparison_print(gb_comparison *comp) {
          comp->ahead);
 }
 
-bool gb_branch_filter_check(gb_comparison *comp) {
-  if (ahead_filter == -1) return true;
-  return (comp->ahead == ahead_filter);
-}
+bool gb_branch_is_filtered(gb_comparison *comp) {
+  if (ahead_filter > -1 && comp->ahead != ahead_filter) {
+    return true;
+  }
 
+  return false;
+}
 
 
 
@@ -229,7 +206,7 @@ void print_last_branches() {
 
   for (int i = 0; i < branch_count; i++) {
     gb_comparison_execute(comps[i]);
-    if (gb_branch_filter_check(comps[i])) {
+    if (!gb_branch_is_filtered(comps[i])) {
       gb_comparison_print(comps[i]);
     }
   }
