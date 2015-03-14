@@ -35,6 +35,7 @@ typedef struct gb_options {
   int ahead_filter;
   int behind_filter;
   int merged_flag;
+  int no_merged_flag;
   int clear_cache_flag;
 } gb_options;
 
@@ -68,6 +69,7 @@ void gb_options_init(int argc, char **argv) {
   options->ahead_filter = -1;
   options->behind_filter = -1;
   options->merged_flag = 0;
+  options->no_merged_flag = 0;
   options->clear_cache_flag = 0;
 
 
@@ -76,6 +78,7 @@ void gb_options_init(int argc, char **argv) {
   while (1) {
     struct option long_options[] = {
       { "merged", no_argument, &options->merged_flag, 1 },
+      { "no-merged", no_argument, &options->no_merged_flag, 1 },
       { "clear-cache", no_argument, &options->clear_cache_flag, 1 }
     };
 
@@ -247,6 +250,10 @@ bool gb_branch_is_filtered(gb_comparison *comp) {
   }
 
   if (options->merged_flag && !comp->is_merged) {
+    return true;
+  }
+
+  if (options->no_merged_flag && comp->is_merged) {
     return true;
   }
 
