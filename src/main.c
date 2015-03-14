@@ -210,7 +210,7 @@ void gb_comparison_execute(gb_comparison *comp) {
 
 // Returns a pointer to the color constant based on some very basic rules.
 char* gb_output_color(gb_comparison *comp) {
-  if ( !isatty(fileno(stdout)) ) return "";
+  if ( !isatty(STDOUT_FILENO) ) return "";
 
   time_t rawtime = comp->timestamp;
   time_t now = time(0);
