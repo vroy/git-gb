@@ -37,6 +37,7 @@ json_t *gb_json;
 char *gb_cache_path;
 int ahead_filter = -1;
 int merged_flag = -1;
+int clear_cache_flag = 0;
 
 char *RED = "\e[0;31m";
 char *YELLOW = "\e[0;33m";
@@ -241,6 +242,11 @@ void print_last_branches() {
 void gb_cache_load() {
   json_error_t error;
 
+  if (clear_cache_flag) {
+    gb_json = json_object();
+    return;
+  }
+
   gb_json = json_load_file(gb_cache_path, 0, &error);
 
   if (!gb_json) {
@@ -292,7 +298,8 @@ int main(int argc, char **argv) {
 
   while (1) {
     static struct option long_options[] = {
-      { "merged", no_argument, &merged_flag, 1},
+      { "merged", no_argument, &merged_flag, 1 },
+      { "clear-cache", no_argument, &clear_cache_flag, 1 }
     };
 
     int option_index = 0;
