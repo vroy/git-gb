@@ -18,7 +18,7 @@ The output is sorted in chronological order - your last modified branches appear
 
 The install script will do its best to install dependencies before compiling.
 
-    curl -sSL https://raw.githubusercontent.com/exploid/gb/master/install | bash -s stable
+    curl -sSL https://raw.githubusercontent.com/exploid/gb/master/install | bash
 
 Or alternatively, after making sure that [cmake](http://www.cmake.org/) is installed:
 
