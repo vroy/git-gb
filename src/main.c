@@ -22,11 +22,16 @@
 // Uncomment to compile with debugging output turned on.
 // #define DEBUG 1
 
+//Define bool type
+typedef int bool;
+enum { false, true };
+
 // Globals are evil, but this is a short-live program that will never change
 // context while it's running.
 git_repository *gb_repo;
 json_t *gb_json;
 char *gb_cache_path;
+int *ahead_filter;
 
 char *RED = "\e[0;31m";
 char *YELLOW = "\e[0;33m";
@@ -190,6 +195,14 @@ void gb_comparison_print(gb_comparison *comp) {
          comp->ahead);
 }
 
+bool gb_is_filtered_branch(gb_comparison *comp) {
+  if (ahead_filter == NULL || comp->ahead == *ahead_filter) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 
 
 
@@ -219,7 +232,9 @@ void print_last_branches() {
 
   for (int i = 0; i < branch_count; i++) {
     gb_comparison_execute(comps[i]);
-    gb_comparison_print(comps[i]);
+    if (gb_is_filtered_branch(comps[i])) {
+      gb_comparison_print(comps[i]);
+    }
   }
 
   git_branch_iterator_free(iter);
@@ -275,6 +290,20 @@ git_repository* gb_git_repo_new() {
 
 
 int main(int argc, char **args) {
+  //Parse arguments.
+  int opt;
+  int ahead_option;
+  while ((opt = getopt(argc, args, "a:")) != -1) {
+    switch(opt){
+    case 'a':
+      ahead_option = atoi(optarg);
+      ahead_filter = &ahead_option;
+      break;
+    default:
+      printf("option not found");
+    }
+  }
+
   // First thing we do is init/load the globals.
   gb_repo = gb_git_repo_new();
 
