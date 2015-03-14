@@ -19,6 +19,10 @@
 // To have a reference to MAXPATHLEN
 #include <sys/param.h>
 
+// Parse them options
+#include <getopt.h>
+
+
 // Uncomment to compile with debugging output turned on.
 // #define DEBUG 1
 
@@ -26,12 +30,67 @@
 typedef int bool;
 enum { false, true };
 
+
+typedef struct gb_options {
+  int ahead_filter;
+  int merged_flag;
+  int clear_cache_flag;
+} gb_options;
+
+typedef struct gb_comparison {
+  char tip[41];
+  char master_tip[41];
+  git_oid tip_oid;
+  git_oid master_oid;
+  char name[200];
+  char reference_name[200];
+  long timestamp;
+  size_t ahead;
+  size_t behind;
+  int is_head;
+  size_t is_merged;
+} gb_comparison;
+
+
 // Globals are evil, but this is a short-live program that will never change
 // context while it's running.
 git_repository *gb_repo;
 json_t *gb_json;
 char *gb_cache_path;
-int *ahead_filter;
+gb_options *options;
+
+
+void gb_options_init(int argc, char **argv) {
+  options = malloc(sizeof(gb_options));
+
+  // Set defaults
+  options->ahead_filter = -1;
+  options->merged_flag = 0;
+  options->clear_cache_flag = 0;
+
+
+  int opt;
+
+  while (1) {
+    struct option long_options[] = {
+      { "merged", no_argument, &options->merged_flag, 1 },
+      { "clear-cache", no_argument, &options->clear_cache_flag, 1 }
+    };
+
+    int option_index = 0;
+    opt = getopt_long(argc, argv, "a:", long_options, &option_index);
+
+    switch(opt) {
+      case 'a':
+        options->ahead_filter = atoi(optarg);
+        break;
+    }
+
+    if (opt == -1) break;
+  }
+}
+
+
 
 char *RED = "\e[0;31m";
 char *YELLOW = "\e[0;33m";
@@ -44,55 +103,9 @@ void gb_git_check_return(int rc, char *msg) {
   }
 }
 
-int gb_rev_count(char *one, char *two) {
-  if ( strcmp(one, two) == 0) {
-    return 0;
-  }
-
-  char *range = malloc( (strlen(one) + strlen(two) + 3) * sizeof(char));
-  sprintf(range, "%s..%s", one, two);
-
-  // Return value read from cache if found.
-  json_t *object = json_object_get(gb_json, range);
-  if (json_is_number(object)) {
-    return json_integer_value(object);
-  }
-
-  // Find value.
-  int rc;
-  git_revwalk *walker;
-  git_oid next_commit;
-  int count = 0;
-
-  rc = git_revwalk_new(&walker, gb_repo);
-  gb_git_check_return(rc, "new revwalk");
-
-  rc = git_revwalk_push_range(walker, range);
-  gb_git_check_return(rc, range);
-
-  while (!git_revwalk_next(&next_commit, walker)) {
-    count++;
-  }
-
-  // Cache count in JSON tree.
-  json_object_set(gb_json, range, json_integer(count));
-
-  git_revwalk_free(walker);
-  return count;
-}
 
 
-typedef struct gb_comparison {
-  char tip[41];
-  char master_tip[41];
-  git_oid tip_oid;
-  char name[200];
-  char reference_name[200];
-  long timestamp;
-  int ahead;
-  int behind;
-  int is_head;
-} gb_comparison;
+
 
 void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
   int rc;
@@ -120,10 +133,9 @@ void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
   git_oid_tostr(comp->tip, 41, &comp->tip_oid);
 
   // Keep reference to master_tip that we're comparing to.
-  git_oid master_oid;
-  rc = git_reference_name_to_id(&master_oid, gb_repo, "refs/heads/master");
+  rc = git_reference_name_to_id(&comp->master_oid, gb_repo, "refs/heads/master");
   gb_git_check_return(rc, "Can't find branch tip id.");
-  git_oid_tostr(comp->master_tip, 41, &master_oid);
+  git_oid_tostr(comp->master_tip, 41, &comp->master_oid);
 
   // Find commit based on tip oid.
   git_commit *commit;
@@ -134,6 +146,7 @@ void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
 
   comp->ahead = 0;
   comp->behind = 0;
+  comp->is_merged = 0;
 }
 
 
@@ -159,8 +172,24 @@ int gb_comparison_desc_timestamp_sort(const void *a, const void *b) {
 
 
 void gb_comparison_execute(gb_comparison *comp) {
-  comp->ahead  = gb_rev_count(comp->master_tip, comp->tip);
-  comp->behind = gb_rev_count(comp->tip, comp->master_tip);
+  char *range = malloc( (strlen(comp->tip) + strlen(comp->master_tip) + 3) * sizeof(char));
+  sprintf(range, "%s..%s", comp->tip, comp->master_tip);
+
+  json_t *object = json_object_get(gb_json, range);
+  if (json_is_object(object)) {
+    json_unpack(object, "{sIsIsI}",
+                "ahead", &comp->ahead,
+                "behind", &comp->behind,
+                "is_merged", &comp->is_merged);
+
+  } else {
+    // Same behaviour for is_merged as `git branch --merged`
+    comp->is_merged = git_graph_descendant_of(gb_repo, &comp->master_oid, &comp->tip_oid) || git_oid_equal(&comp->master_oid, &comp->tip_oid);
+
+    git_graph_ahead_behind(&comp->ahead, &comp->behind, gb_repo, &comp->tip_oid, &comp->master_oid);
+
+    json_object_set(gb_json, range, json_pack("{sIsIsI}", "ahead", comp->ahead, "behind", comp->behind, "is_merged", comp->is_merged));
+  }
 }
 
 
@@ -187,22 +216,33 @@ void gb_comparison_print(gb_comparison *comp) {
   struct tm * timeinfo = localtime(&rawtime);
   strftime(formatted_time, 80, "%F %H:%M%p", timeinfo);
 
-  printf("%s%s | %-40.40s | behind: %4d | ahead: %4d\n",
+  char merge_status[10];
+  memset(merge_status, '\0', 9);
+
+  if (comp->is_merged) {
+    strcpy(merge_status, " (merged)");
+  }
+
+  printf("%s%s | %-40.40s | behind: %4lu | ahead: %4lu %s\n",
          gb_output_color(comp),
          formatted_time,
          comp->name,
          comp->behind,
-         comp->ahead);
+         comp->ahead,
+         merge_status);
 }
 
-bool gb_is_filtered_branch(gb_comparison *comp) {
-  if (ahead_filter == NULL || comp->ahead == *ahead_filter) {
+bool gb_branch_is_filtered(gb_comparison *comp) {
+  if (options->ahead_filter > -1 && comp->ahead != options->ahead_filter) {
     return true;
-  } else {
-    return false;
   }
-}
 
+  if (options->merged_flag && !comp->is_merged) {
+    return true;
+  }
+
+  return false;
+}
 
 
 
@@ -232,7 +272,7 @@ void print_last_branches() {
 
   for (int i = 0; i < branch_count; i++) {
     gb_comparison_execute(comps[i]);
-    if (gb_is_filtered_branch(comps[i])) {
+    if (!gb_branch_is_filtered(comps[i])) {
       gb_comparison_print(comps[i]);
     }
   }
@@ -243,6 +283,11 @@ void print_last_branches() {
 
 void gb_cache_load() {
   json_error_t error;
+
+  if (options->clear_cache_flag) {
+    gb_json = json_object();
+    return;
+  }
 
   gb_json = json_load_file(gb_cache_path, 0, &error);
 
@@ -289,20 +334,10 @@ git_repository* gb_git_repo_new() {
 
 
 
-int main(int argc, char **args) {
-  //Parse arguments.
-  int opt;
-  int ahead_option;
-  while ((opt = getopt(argc, args, "a:")) != -1) {
-    switch(opt){
-    case 'a':
-      ahead_option = atoi(optarg);
-      ahead_filter = &ahead_option;
-      break;
-    default:
-      printf("option not found");
-    }
-  }
+int main(int argc, char **argv) {
+  git_libgit2_init();
+
+  gb_options_init(argc, argv);
 
   // First thing we do is init/load the globals.
   gb_repo = gb_git_repo_new();
