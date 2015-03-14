@@ -30,26 +30,12 @@
 typedef int bool;
 enum { false, true };
 
-// Globals are evil, but this is a short-live program that will never change
-// context while it's running.
-git_repository *gb_repo;
-json_t *gb_json;
-char *gb_cache_path;
-int ahead_filter = -1;
-int merged_flag = -1;
-int clear_cache_flag = 0;
 
-char *RED = "\e[0;31m";
-char *YELLOW = "\e[0;33m";
-char *GREEN = "\e[0;32m";
-
-void gb_git_check_return(int rc, char *msg) {
-  if (rc != 0) {
-    fprintf(stderr, "%s. Code: %d\n", msg, rc);
-    exit(1);
-  }
-}
-
+typedef struct gb_options {
+  int ahead_filter;
+  int merged_flag;
+  int clear_cache_flag;
+} gb_options;
 
 typedef struct gb_comparison {
   char tip[41];
@@ -64,6 +50,62 @@ typedef struct gb_comparison {
   int is_head;
   size_t is_merged;
 } gb_comparison;
+
+
+// Globals are evil, but this is a short-live program that will never change
+// context while it's running.
+git_repository *gb_repo;
+json_t *gb_json;
+char *gb_cache_path;
+gb_options *options;
+
+
+void gb_options_init(int argc, char **argv) {
+  options = malloc(sizeof(gb_options));
+
+  // Set defaults
+  options->ahead_filter = -1;
+  options->merged_flag = 0;
+  options->clear_cache_flag = 0;
+
+
+  int opt;
+
+  while (1) {
+    struct option long_options[] = {
+      { "merged", no_argument, &options->merged_flag, 1 },
+      { "clear-cache", no_argument, &options->clear_cache_flag, 1 }
+    };
+
+    int option_index = 0;
+    opt = getopt_long(argc, argv, "a:", long_options, &option_index);
+
+    switch(opt) {
+      case 'a':
+        options->ahead_filter = atoi(optarg);
+        break;
+    }
+
+    if (opt == -1) break;
+  }
+}
+
+
+
+char *RED = "\e[0;31m";
+char *YELLOW = "\e[0;33m";
+char *GREEN = "\e[0;32m";
+
+void gb_git_check_return(int rc, char *msg) {
+  if (rc != 0) {
+    fprintf(stderr, "%s. Code: %d\n", msg, rc);
+    exit(1);
+  }
+}
+
+
+
+
 
 void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
   int rc;
@@ -191,11 +233,11 @@ void gb_comparison_print(gb_comparison *comp) {
 }
 
 bool gb_branch_is_filtered(gb_comparison *comp) {
-  if (ahead_filter > -1 && comp->ahead != ahead_filter) {
+  if (options->ahead_filter > -1 && comp->ahead != options->ahead_filter) {
     return true;
   }
 
-  if (merged_flag > -1 && !comp->is_merged) {
+  if (options->merged_flag && !comp->is_merged) {
     return true;
   }
 
@@ -242,7 +284,7 @@ void print_last_branches() {
 void gb_cache_load() {
   json_error_t error;
 
-  if (clear_cache_flag) {
+  if (options->clear_cache_flag) {
     gb_json = json_object();
     return;
   }
@@ -294,25 +336,8 @@ git_repository* gb_git_repo_new() {
 
 int main(int argc, char **argv) {
   git_libgit2_init();
-  int opt;
 
-  while (1) {
-    static struct option long_options[] = {
-      { "merged", no_argument, &merged_flag, 1 },
-      { "clear-cache", no_argument, &clear_cache_flag, 1 }
-    };
-
-    int option_index = 0;
-    opt = getopt_long(argc, argv, "a:", long_options, &option_index);
-
-    switch(opt) {
-      case 'a':
-        ahead_filter = atoi(optarg);
-        break;
-    }
-
-    if (opt == -1) break;
-  }
+  gb_options_init(argc, argv);
 
   // First thing we do is init/load the globals.
   gb_repo = gb_git_repo_new();
