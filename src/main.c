@@ -287,6 +287,7 @@ git_repository* gb_git_repo_new() {
 
 
 int main(int argc, char **args) {
+  git_libgit2_init();
   //Parse arguments.
   int opt;
   while ((opt = getopt(argc, args, "a:")) != -1) {
