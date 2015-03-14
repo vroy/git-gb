@@ -33,6 +33,7 @@ enum { false, true };
 
 typedef struct gb_options {
   int ahead_filter;
+  int behind_filter;
   int merged_flag;
   int clear_cache_flag;
 } gb_options;
@@ -65,6 +66,7 @@ void gb_options_init(int argc, char **argv) {
 
   // Set defaults
   options->ahead_filter = -1;
+  options->behind_filter = -1;
   options->merged_flag = 0;
   options->clear_cache_flag = 0;
 
@@ -78,12 +80,15 @@ void gb_options_init(int argc, char **argv) {
     };
 
     int option_index = 0;
-    opt = getopt_long(argc, argv, "a:", long_options, &option_index);
+    opt = getopt_long(argc, argv, "a:b:", long_options, &option_index);
 
     switch(opt) {
-      case 'a':
-        options->ahead_filter = atoi(optarg);
-        break;
+    case 'a':
+      options->ahead_filter = atoi(optarg);
+      break;
+    case 'b':
+      options->behind_filter = atoi(optarg);
+      break;
     }
 
     if (opt == -1) break;
@@ -234,6 +239,10 @@ void gb_comparison_print(gb_comparison *comp) {
 
 bool gb_branch_is_filtered(gb_comparison *comp) {
   if (options->ahead_filter > -1 && comp->ahead != options->ahead_filter) {
+    return true;
+  }
+
+  if (options->behind_filter > -1 && comp->behind != options->behind_filter) {
     return true;
   }
 
