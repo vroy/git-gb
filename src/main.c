@@ -19,6 +19,10 @@
 // To have a reference to MAXPATHLEN
 #include <sys/param.h>
 
+// Parse them options
+#include <getopt.h>
+
+
 // Uncomment to compile with debugging output turned on.
 // #define DEBUG 1
 
@@ -32,6 +36,7 @@ git_repository *gb_repo;
 json_t *gb_json;
 char *gb_cache_path;
 int ahead_filter = -1;
+int merged_flag = -1;
 
 char *RED = "\e[0;31m";
 char *YELLOW = "\e[0;33m";
@@ -56,6 +61,7 @@ typedef struct gb_comparison {
   size_t ahead;
   size_t behind;
   int is_head;
+  size_t is_merged;
 } gb_comparison;
 
 void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
@@ -97,6 +103,7 @@ void gb_comparison_new(git_reference *ref, gb_comparison *comp) {
 
   comp->ahead = 0;
   comp->behind = 0;
+  comp->is_merged = 0;
 }
 
 
@@ -127,14 +134,18 @@ void gb_comparison_execute(gb_comparison *comp) {
 
   json_t *object = json_object_get(gb_json, range);
   if (json_is_object(object)) {
-    json_unpack(object, "{sIsI}",
+    json_unpack(object, "{sIsIsI}",
                 "ahead", &comp->ahead,
-                "behind", &comp->behind);
+                "behind", &comp->behind,
+                "is_merged", &comp->is_merged);
 
   } else {
+    // Same behaviour for is_merged as `git branch --merged`
+    comp->is_merged = git_graph_descendant_of(gb_repo, &comp->master_oid, &comp->tip_oid) || git_oid_equal(&comp->master_oid, &comp->tip_oid);
+
     git_graph_ahead_behind(&comp->ahead, &comp->behind, gb_repo, &comp->master_oid, &comp->tip_oid);
 
-    json_object_set(gb_json, range, json_pack("{sIsI}", "ahead", comp->ahead, "behind", comp->behind));
+    json_object_set(gb_json, range, json_pack("{sIsIsI}", "ahead", comp->ahead, "behind", comp->behind, "is_merged", comp->is_merged));
   }
 }
 
@@ -162,16 +173,28 @@ void gb_comparison_print(gb_comparison *comp) {
   struct tm * timeinfo = localtime(&rawtime);
   strftime(formatted_time, 80, "%F %H:%M%p", timeinfo);
 
-  printf("%s%s | %-40.40s | behind: %4lu | ahead: %4lu\n",
+  char merge_status[10];
+  memset(merge_status, '\0', 9);
+
+  if (comp->is_merged) {
+    strcpy(merge_status, " (merged)");
+  }
+
+  printf("%s%s | %-40.40s | behind: %4lu | ahead: %4lu %s\n",
          gb_output_color(comp),
          formatted_time,
          comp->name,
          comp->behind,
-         comp->ahead);
+         comp->ahead,
+         merge_status);
 }
 
 bool gb_branch_is_filtered(gb_comparison *comp) {
   if (ahead_filter > -1 && comp->ahead != ahead_filter) {
+    return true;
+  }
+
+  if (merged_flag > -1 && !comp->is_merged) {
     return true;
   }
 
@@ -263,16 +286,25 @@ git_repository* gb_git_repo_new() {
 
 
 
-int main(int argc, char **args) {
+int main(int argc, char **argv) {
   git_libgit2_init();
-  //Parse arguments.
   int opt;
-  while ((opt = getopt(argc, args, "a:")) != -1) {
-    switch(opt){
-    case 'a':
-      ahead_filter = atoi(optarg);
-      break;
+
+  while (1) {
+    static struct option long_options[] = {
+      { "merged", no_argument, &merged_flag, 1},
+    };
+
+    int option_index = 0;
+    opt = getopt_long(argc, argv, "a:", long_options, &option_index);
+
+    switch(opt) {
+      case 'a':
+        ahead_filter = atoi(optarg);
+        break;
     }
+
+    if (opt == -1) break;
   }
 
   // First thing we do is init/load the globals.
