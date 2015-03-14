@@ -34,6 +34,7 @@ enum { false, true };
 typedef struct gb_options {
   int ahead_filter;
   int behind_filter;
+  int help_flag;
   int merged_flag;
   int no_merged_flag;
   int clear_cache_flag;
@@ -68,6 +69,7 @@ void gb_options_init(int argc, char **argv) {
   // Set defaults
   options->ahead_filter = -1;
   options->behind_filter = -1;
+  options->help_flag = 0;
   options->merged_flag = 0;
   options->no_merged_flag = 0;
   options->clear_cache_flag = 0;
@@ -79,11 +81,12 @@ void gb_options_init(int argc, char **argv) {
     struct option long_options[] = {
       { "merged", no_argument, &options->merged_flag, 1 },
       { "no-merged", no_argument, &options->no_merged_flag, 1 },
-      { "clear-cache", no_argument, &options->clear_cache_flag, 1 }
+      { "clear-cache", no_argument, &options->clear_cache_flag, 1 },
+      { "help", no_argument, &options->help_flag, 1 }
     };
 
     int option_index = 0;
-    opt = getopt_long(argc, argv, "a:b:", long_options, &option_index);
+    opt = getopt_long(argc, argv, "a:b:h", long_options, &option_index);
 
     switch(opt) {
     case 'a':
@@ -91,6 +94,10 @@ void gb_options_init(int argc, char **argv) {
       break;
     case 'b':
       options->behind_filter = atoi(optarg);
+      break;
+    case 'h':
+    case '?':
+      options->help_flag = 1;
       break;
     }
 
@@ -354,6 +361,11 @@ int main(int argc, char **argv) {
   git_libgit2_init();
 
   gb_options_init(argc, argv);
+
+  if (options->help_flag) {
+    system("man gb");
+    return 0;
+  }
 
   // First thing we do is init/load the globals.
   gb_repo = gb_git_repo_new();

@@ -27,7 +27,7 @@ build: src/main.c
 	mkdir -p build/
 	$(CC) -o $(TARGET) $(SRC) $(CFLAGS)
 
-install:
+install: man
 	cp $(TARGET) $(INSTALL_DIR)
 
 force:
@@ -39,6 +39,11 @@ run: clean force build install
 
 clean:
 	@rm -rf build/
+
+man:
+	install -g 0 -o 0 -m 0644 gb.1 /usr/share/man/man1/gb.1
+	rm -f /usr/share/man/man1/gb.1.gz
+	gzip -f /usr/share/man/man1/gb.1
 
 deps: clean
 	@if [ `pkg-config --modversion jansson` == "2.7" ]; then \
