@@ -186,7 +186,7 @@ void gb_comparison_execute(gb_comparison *comp) {
     // Same behaviour for is_merged as `git branch --merged`
     comp->is_merged = git_graph_descendant_of(gb_repo, &comp->master_oid, &comp->tip_oid) || git_oid_equal(&comp->master_oid, &comp->tip_oid);
 
-    git_graph_ahead_behind(&comp->ahead, &comp->behind, gb_repo, &comp->master_oid, &comp->tip_oid);
+    git_graph_ahead_behind(&comp->ahead, &comp->behind, gb_repo, &comp->tip_oid, &comp->master_oid);
 
     json_object_set(gb_json, range, json_pack("{sIsIsI}", "ahead", comp->ahead, "behind", comp->behind, "is_merged", comp->is_merged));
   }
