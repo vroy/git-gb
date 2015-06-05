@@ -1,22 +1,24 @@
 package main
 
-import(
-	"time"
-	"os"
+import (
 	"fmt"
-	"github.com/libgit2/git2go"
+	"os"
+	"time"
+
+	git "github.com/libgit2/git2go"
 )
 
+type ColorType string
+
 const (
-	Red    string = "\x1b[0;31m"
-	Yellow string = "\x1b[0;33m"
-	Green  string = "\x1b[0;32m"
+	Red    ColorType = "\x1b[0;31m"
+	Yellow           = "\x1b[0;33m"
+	Green            = "\x1b[0;32m"
 
 	BaseBranch string = "master"
 )
 
-
-func GetRepo() (*git.Repository) {
+func NewRepo() *git.Repository {
 	repo, err := git.OpenRepository(".")
 	if err != nil {
 		// @todo improve message
@@ -26,7 +28,7 @@ func GetRepo() (*git.Repository) {
 	return repo
 }
 
-func GetBranchIterator(repo *git.Repository) (*git.BranchIterator) {
+func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
 	i, err := repo.NewBranchIterator(git.BranchLocal)
 	if err != nil {
 		// @todo improve message
@@ -36,7 +38,7 @@ func GetBranchIterator(repo *git.Repository) (*git.BranchIterator) {
 	return i
 }
 
-func GetBaseOid(repo *git.Repository) (*git.Oid) {
+func LookupBaseOid(repo *git.Repository) *git.Oid {
 	base_branch, err := repo.LookupBranch(BaseBranch, git.BranchLocal)
 	if err != nil {
 		fmt.Printf("Error looking up %s\n", BaseBranch)
@@ -46,18 +48,17 @@ func GetBaseOid(repo *git.Repository) (*git.Oid) {
 	return base_branch.Target()
 }
 
-
 type Comparison struct {
-	Repo *git.Repository
+	Repo    *git.Repository
 	BaseOid *git.Oid
-	Branch *git.Branch
-	Oid *git.Oid
+	Branch  *git.Branch
+	Oid     *git.Oid
 
-	_ahead int
-	_behind int
+	ahead  int
+	behind int
 }
 
-func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch) *Comparison{
+func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch) *Comparison {
 	c := new(Comparison)
 
 	c.Repo = repo
@@ -66,8 +67,8 @@ func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch) 
 	c.Branch = branch
 	c.Oid = branch.Target()
 
-	c._ahead = -1
-	c._behind = -1
+	c.ahead = -1
+	c.behind = -1
 
 	return c
 }
@@ -90,18 +91,17 @@ func (c Comparison) IsHead() bool {
 	return head
 }
 
-
 func (c Comparison) IsMerged() bool {
-		if c.Oid.String() == c.BaseOid.String() {
-			return true
-		} else {
-			merged, err := c.Repo.DescendantOf(c.BaseOid, c.Oid)
-			if err != nil {
-				fmt.Printf("Could not get descendant of '%s' and '%s'.\n", c.BaseOid, c.Oid)
-				os.Exit(1)
-			}
-			return merged
+	if c.Oid.String() == c.BaseOid.String() {
+		return true
+	} else {
+		merged, err := c.Repo.DescendantOf(c.BaseOid, c.Oid)
+		if err != nil {
+			fmt.Printf("Could not get descendant of '%s' and '%s'.\n", c.BaseOid, c.Oid)
+			os.Exit(1)
 		}
+		return merged
+	}
 }
 
 func (c Comparison) Commit() *git.Commit {
@@ -114,7 +114,7 @@ func (c Comparison) Commit() *git.Commit {
 }
 
 // @todo red for old commits
-func (c Comparison) Color() string {
+func (c Comparison) Color() ColorType {
 	if c.IsHead() {
 		return Green
 	} else {
@@ -129,36 +129,34 @@ func (c Comparison) When() time.Time {
 
 func (c *Comparison) Ahead() int {
 	c.ComputeAheadBehind()
-	return c._ahead
+	return c.ahead
 }
 
 func (c *Comparison) Behind() int {
 	c.ComputeAheadBehind()
-	return c._behind
+	return c.behind
 }
 
 func (c *Comparison) ComputeAheadBehind() {
-	if (c._ahead > -1 && c._behind > -1) { return }
+	if c.ahead > -1 && c.behind > -1 {
+		return
+	}
 
 	var err error
-	c._ahead, c._behind, err = c.Repo.AheadBehind(c.Oid, c.BaseOid)
+	c.ahead, c.behind, err = c.Repo.AheadBehind(c.Oid, c.BaseOid)
 	if err != nil {
 		fmt.Printf("Error getting ahead/behind\n", c.BaseOid)
 		os.Exit(1)
 	}
 }
 
-
 func main() {
-	repo := GetRepo()
-	branch_iterator := GetBranchIterator(repo)
-	base_oid := GetBaseOid(repo)
-
-	// comparisons := [...]Comparison
-
+	repo := NewRepo()
+	branch_iterator := NewBranchIterator(repo)
+	base_oid := LookupBaseOid(repo)
 
 	// type BranchIteratorFunc func(*Branch, BranchType) error
-	branch_iterator.ForEach( func(branch *git.Branch, btype git.BranchType) error {
+	branch_iterator.ForEach(func(branch *git.Branch, btype git.BranchType) error {
 		comp := NewComparison(repo, base_oid, branch)
 
 		merged_string := ""
