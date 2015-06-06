@@ -18,12 +18,16 @@ const (
 	BaseBranch string = "master"
 )
 
+func exit(msg string, args ...string) {
+	fmt.Printf(msg, args)
+	os.Exit(1)
+}
+
 func NewRepo() *git.Repository {
 	repo, err := git.OpenRepository(".")
 	if err != nil {
 		// @todo improve message
-		fmt.Printf("Could not open repository at '.'\n")
-		os.Exit(1)
+		exit("Could not open repository at '.'\n")
 	}
 	return repo
 }
@@ -32,8 +36,7 @@ func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
 	i, err := repo.NewBranchIterator(git.BranchLocal)
 	if err != nil {
 		// @todo improve message
-		fmt.Printf("Can't list branches\n")
-		os.Exit(1)
+		exit("Can't list branches\n")
 	}
 	return i
 }
@@ -41,8 +44,7 @@ func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
 func LookupBaseOid(repo *git.Repository) *git.Oid {
 	base_branch, err := repo.LookupBranch(BaseBranch, git.BranchLocal)
 	if err != nil {
-		fmt.Printf("Error looking up %s\n", BaseBranch)
-		os.Exit(1)
+		exit("Error looking up %s\n", BaseBranch)
 	}
 
 	return base_branch.Target()
@@ -73,48 +75,44 @@ func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch) 
 	return c
 }
 
-func (c Comparison) Name() string {
+func (c *Comparison) Name() string {
 	name, err := c.Branch.Name()
 	if err != nil {
-		fmt.Printf("Can't get branch name\n")
-		os.Exit(1)
+		exit("Can't get branch name\n")
 	}
 	return name
 }
 
-func (c Comparison) IsHead() bool {
+func (c *Comparison) IsHead() bool {
 	head, err := c.Branch.IsHead()
 	if err != nil {
-		fmt.Printf("Can't get IsHead\n")
-		os.Exit(1)
+		exit("Can't get IsHead\n")
 	}
 	return head
 }
 
-func (c Comparison) IsMerged() bool {
+func (c *Comparison) IsMerged() bool {
 	if c.Oid.String() == c.BaseOid.String() {
 		return true
 	} else {
 		merged, err := c.Repo.DescendantOf(c.BaseOid, c.Oid)
 		if err != nil {
-			fmt.Printf("Could not get descendant of '%s' and '%s'.\n", c.BaseOid, c.Oid)
-			os.Exit(1)
+			exit("Could not get descendant of '%s' and '%s'.\n", c.BaseOid.String(), c.Oid.String())
 		}
 		return merged
 	}
 }
 
-func (c Comparison) Commit() *git.Commit {
+func (c *Comparison) Commit() *git.Commit {
 	commit, err := c.Repo.LookupCommit(c.Oid)
 	if err != nil {
-		fmt.Printf("Could not lookup commit '%s'.\n", c.Oid)
-		os.Exit(1)
+		exit("Could not lookup commit '%s'.\n", c.Oid.String())
 	}
 	return commit
 }
 
 // @todo red for old commits
-func (c Comparison) Color() ColorType {
+func (c *Comparison) Color() ColorType {
 	if c.IsHead() {
 		return Green
 	} else {
@@ -122,7 +120,7 @@ func (c Comparison) Color() ColorType {
 	}
 }
 
-func (c Comparison) When() time.Time {
+func (c *Comparison) When() time.Time {
 	sig := c.Commit().Committer()
 	return sig.When
 }
@@ -145,8 +143,7 @@ func (c *Comparison) ComputeAheadBehind() {
 	var err error
 	c.ahead, c.behind, err = c.Repo.AheadBehind(c.Oid, c.BaseOid)
 	if err != nil {
-		fmt.Printf("Error getting ahead/behind\n", c.BaseOid)
-		os.Exit(1)
+		exit("Error getting ahead/behind\n", c.BaseOid.String())
 	}
 }
 
