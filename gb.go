@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	git "github.com/libgit2/git2go"
@@ -125,6 +126,10 @@ func (c *Comparison) When() time.Time {
 	return sig.When
 }
 
+func (c *Comparison) FormattedWhen() string {
+	return c.When().Format("2006-01-02 15:04")
+}
+
 func (c *Comparison) Ahead() int {
 	c.ComputeAheadBehind()
 	return c.ahead
@@ -147,15 +152,31 @@ func (c *Comparison) ComputeAheadBehind() {
 	}
 }
 
+type ComparisonWhenAsc []*Comparison
+
+func (a ComparisonWhenAsc) Len() int      { return len(a) }
+func (a ComparisonWhenAsc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ComparisonWhenAsc) Less(i, j int) bool {
+	return a[i].When().Unix() < a[j].When().Unix()
+}
+
 func main() {
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
 	base_oid := LookupBaseOid(repo)
 
+	comparisons := make([]*Comparison, 0)
+
 	// type BranchIteratorFunc func(*Branch, BranchType) error
 	branch_iterator.ForEach(func(branch *git.Branch, btype git.BranchType) error {
 		comp := NewComparison(repo, base_oid, branch)
+		comparisons = append(comparisons, comp)
+		return nil
+	})
 
+	sort.Sort(ComparisonWhenAsc(comparisons))
+
+	for _, comp := range comparisons {
 		merged_string := ""
 		if comp.IsMerged() {
 			merged_string = "(merged)"
@@ -164,14 +185,12 @@ func main() {
 		fmt.Printf(
 			"%s%s | %-30s           | behind: %4d | ahead: %4d %s\n",
 			comp.Color(),
-			comp.When().Format("2006-01-02 15:04"),
+			comp.FormattedWhen(),
 			comp.Name(),
 			comp.Behind(),
 			comp.Ahead(),
 			merged_string)
-
-		return nil
-	})
+	}
 
 	// @todo store all comparisons in a list that can be sorted before printing.
 	// @todo filter them things
