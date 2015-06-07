@@ -179,10 +179,10 @@ type Options struct {
 func NewOptions() *Options {
 	o := new(Options)
 
-	flag.IntVar(&o.Ahead, "ahead", -1, "help message for ahead")
-	flag.IntVar(&o.Behind, "behind", -1, "help message for behind")
-	flag.BoolVar(&o.Merged, "merged", false, "help message for merged")
-	flag.BoolVar(&o.NoMerged, "no-merged", false, "help message for no-merged")
+	flag.IntVar(&o.Ahead, "ahead", -1, "only show branches that are <ahead> commits ahead.")
+	flag.IntVar(&o.Behind, "behind", -1, "only show branches that are <behind> commits behind.")
+	flag.BoolVar(&o.Merged, "merged", false, "only show branches that are merged.")
+	flag.BoolVar(&o.NoMerged, "no-merged", false, "only show branches that are not merged.")
 
 	flag.Parse()
 
