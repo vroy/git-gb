@@ -192,8 +192,6 @@ func NewOptions() *Options {
 func main() {
 	opts := NewOptions()
 
-	fmt.Printf("%s\n", opts)
-
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
 	base_oid := LookupBaseOid(repo)
