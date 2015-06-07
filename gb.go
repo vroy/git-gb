@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"sort"
@@ -160,7 +161,31 @@ func (a ComparisonWhenAsc) Less(i, j int) bool {
 	return a[i].When().Unix() < a[j].When().Unix()
 }
 
+type Options struct {
+	Ahead    int
+	Behind   int
+	Merged   bool
+	NoMerged bool
+}
+
+func NewOptions() *Options {
+	o := new(Options)
+
+	flag.IntVar(&o.Ahead, "ahead", -1, "help message for ahead")
+	flag.IntVar(&o.Behind, "behind", -1, "help message for behind")
+	flag.BoolVar(&o.Merged, "merged", false, "help message for merged")
+	flag.BoolVar(&o.NoMerged, "no-merged", false, "help message for no-merged")
+
+	flag.Parse()
+
+	return o
+}
+
 func main() {
+	opts := NewOptions()
+
+	fmt.Printf("%s\n", opts)
+
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
 	base_oid := LookupBaseOid(repo)
@@ -182,6 +207,23 @@ func main() {
 			merged_string = "(merged)"
 		}
 
+		if opts.Ahead != -1 && opts.Ahead != comp.Ahead() {
+			continue
+		}
+
+		if opts.Behind != -1 && opts.Behind != comp.Behind() {
+			continue
+		}
+
+		if opts.Merged && !comp.IsMerged() {
+			continue
+		}
+
+		if opts.NoMerged && comp.IsMerged() {
+			continue
+		}
+
+		// continue
 		fmt.Printf(
 			"%s%s | %-30s           | behind: %4d | ahead: %4d %s\n",
 			comp.Color(),
