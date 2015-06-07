@@ -153,11 +153,19 @@ func (c *Comparison) ComputeAheadBehind() {
 	}
 }
 
-type ComparisonWhenAsc []*Comparison
+type Comparisons []*Comparison
 
-func (a ComparisonWhenAsc) Len() int      { return len(a) }
-func (a ComparisonWhenAsc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ComparisonWhenAsc) Less(i, j int) bool {
+type ComparisonsByWhen Comparisons
+
+func (a ComparisonsByWhen) Len() int {
+	return len(a)
+}
+
+func (a ComparisonsByWhen) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func (a ComparisonsByWhen) Less(i, j int) bool {
 	return a[i].When().Unix() < a[j].When().Unix()
 }
 
@@ -190,7 +198,7 @@ func main() {
 	branch_iterator := NewBranchIterator(repo)
 	base_oid := LookupBaseOid(repo)
 
-	comparisons := make([]*Comparison, 0)
+	comparisons := make(Comparisons, 0)
 
 	// type BranchIteratorFunc func(*Branch, BranchType) error
 	branch_iterator.ForEach(func(branch *git.Branch, btype git.BranchType) error {
@@ -199,7 +207,7 @@ func main() {
 		return nil
 	})
 
-	sort.Sort(ComparisonWhenAsc(comparisons))
+	sort.Sort(ComparisonsByWhen(comparisons))
 
 	for _, comp := range comparisons {
 		merged_string := ""
