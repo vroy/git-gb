@@ -185,10 +185,11 @@ func (a ComparisonsByWhen) Less(i, j int) bool {
 }
 
 type Options struct {
-	Ahead    int
-	Behind   int
-	Merged   bool
-	NoMerged bool
+	Ahead      int
+	Behind     int
+	Merged     bool
+	NoMerged   bool
+	ClearCache bool
 }
 
 func NewOptions() *Options {
@@ -198,6 +199,7 @@ func NewOptions() *Options {
 	flag.IntVar(&o.Behind, "behind", -1, "only show branches that are <behind> commits behind.")
 	flag.BoolVar(&o.Merged, "merged", false, "only show branches that are merged.")
 	flag.BoolVar(&o.NoMerged, "no-merged", false, "only show branches that are not merged.")
+	flag.BoolVar(&o.ClearCache, "clear-cache", false, "clear cache of comparisons.")
 
 	flag.Parse()
 
@@ -227,9 +229,13 @@ func (store *CacheStore) WriteToFile() error {
 }
 
 func main() {
-	store := NewCacheStore()
-
 	opts := NewOptions()
+
+	if opts.ClearCache {
+		os.Remove(".git/go_gb_cache.json")
+	}
+
+	store := NewCacheStore()
 
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
