@@ -22,6 +22,8 @@ const (
 	Green            = "\x1b[0;32m"
 
 	BaseBranch string = "master"
+
+	CachePath = ".git/go_gb_cache.json"
 )
 
 // @todo Always append \n to msg.
@@ -209,7 +211,7 @@ func NewOptions() *Options {
 type CacheStore map[string]*Comparison
 
 func NewCacheStore() CacheStore {
-	bits, err := ioutil.ReadFile(".git/go_gb_cache.json")
+	bits, err := ioutil.ReadFile(CachePath)
 	if err != nil {
 		// no-op: `cache.json` will be written on exit.
 	}
@@ -224,7 +226,7 @@ func (store *CacheStore) WriteToFile() error {
 	if err != nil {
 		fmt.Printf("Could not save cache to file.\n")
 	}
-	ioutil.WriteFile(".git/go_gb_cache.json", b, 0644)
+	ioutil.WriteFile(CachePath, b, 0644)
 	return nil
 }
 
@@ -232,7 +234,7 @@ func main() {
 	opts := NewOptions()
 
 	if opts.ClearCache {
-		os.Remove(".git/go_gb_cache.json")
+		os.Remove(CachePath)
 	}
 
 	store := NewCacheStore()
