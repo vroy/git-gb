@@ -1,11 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
+
+	ioutil "io/ioutil"
 
 	git "github.com/libgit2/git2go"
 )
@@ -20,6 +24,7 @@ const (
 	BaseBranch string = "master"
 )
 
+// @todo Always append \n to msg.
 func exit(msg string, args ...string) {
 	fmt.Printf(msg, args)
 	os.Exit(1)
@@ -58,11 +63,12 @@ type Comparison struct {
 	Branch  *git.Branch
 	Oid     *git.Oid
 
-	ahead  int
-	behind int
+	IsMerged bool
+	Ahead    int
+	Behind   int
 }
 
-func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch) *Comparison {
+func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch, store CacheStore) *Comparison {
 	c := new(Comparison)
 
 	c.Repo = repo
@@ -71,8 +77,17 @@ func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch) 
 	c.Branch = branch
 	c.Oid = branch.Target()
 
-	c.ahead = -1
-	c.behind = -1
+	cache := store[c.CacheKey()]
+
+	if cache != nil {
+		c.Ahead = cache.Ahead
+		c.Behind = cache.Behind
+		c.IsMerged = cache.IsMerged
+	} else {
+		c.IsMerged = false
+		c.Ahead = -1
+		c.Behind = -1
+	}
 
 	return c
 }
@@ -91,18 +106,6 @@ func (c *Comparison) IsHead() bool {
 		exit("Can't get IsHead\n")
 	}
 	return head
-}
-
-func (c *Comparison) IsMerged() bool {
-	if c.Oid.String() == c.BaseOid.String() {
-		return true
-	} else {
-		merged, err := c.Repo.DescendantOf(c.BaseOid, c.Oid)
-		if err != nil {
-			exit("Could not get descendant of '%s' and '%s'.\n", c.BaseOid.String(), c.Oid.String())
-		}
-		return merged
-	}
 }
 
 func (c *Comparison) Commit() *git.Commit {
@@ -128,29 +131,41 @@ func (c *Comparison) When() time.Time {
 }
 
 func (c *Comparison) FormattedWhen() string {
-	return c.When().Format("2006-01-02 15:04")
+	return c.When().Format("2006-01-02 15:04PM")
 }
 
-func (c *Comparison) Ahead() int {
-	c.ComputeAheadBehind()
-	return c.ahead
+func (c *Comparison) CacheKey() string {
+	strs := []string{c.BaseOid.String(), c.Oid.String()}
+	return strings.Join(strs, "..")
 }
 
-func (c *Comparison) Behind() int {
-	c.ComputeAheadBehind()
-	return c.behind
-}
-
-func (c *Comparison) ComputeAheadBehind() {
-	if c.ahead > -1 && c.behind > -1 {
-		return
+func (c *Comparison) SetIsMerged() {
+	if c.Oid.String() == c.BaseOid.String() {
+		c.IsMerged = true
+	} else {
+		merged, err := c.Repo.DescendantOf(c.BaseOid, c.Oid)
+		if err != nil {
+			exit("Could not get descendant of '%s' and '%s'.\n", c.BaseOid.String(), c.Oid.String())
+		}
+		c.IsMerged = merged
 	}
+}
 
+func (c *Comparison) SetAheadBehind() {
 	var err error
-	c.ahead, c.behind, err = c.Repo.AheadBehind(c.Oid, c.BaseOid)
+	c.Ahead, c.Behind, err = c.Repo.AheadBehind(c.Oid, c.BaseOid)
 	if err != nil {
 		exit("Error getting ahead/behind\n", c.BaseOid.String())
 	}
+}
+
+func (c *Comparison) Execute() {
+	if c.Ahead > -1 && c.Behind > -1 {
+		return
+	}
+
+	c.SetIsMerged()
+	c.SetAheadBehind()
 }
 
 type Comparisons []*Comparison
@@ -189,7 +204,31 @@ func NewOptions() *Options {
 	return o
 }
 
+type CacheStore map[string]*Comparison
+
+func NewCacheStore() CacheStore {
+	bits, err := ioutil.ReadFile(".git/go_gb_cache.json")
+	if err != nil {
+		// no-op: `cache.json` will be written on exit.
+	}
+
+	y := make(CacheStore)
+	json.Unmarshal(bits, &y)
+	return y
+}
+
+func (store *CacheStore) WriteToFile() error {
+	b, err := json.Marshal(store)
+	if err != nil {
+		fmt.Printf("Could not save cache to file.\n")
+	}
+	ioutil.WriteFile(".git/go_gb_cache.json", b, 0644)
+	return nil
+}
+
 func main() {
+	store := NewCacheStore()
+
 	opts := NewOptions()
 
 	repo := NewRepo()
@@ -200,7 +239,7 @@ func main() {
 
 	// type BranchIteratorFunc func(*Branch, BranchType) error
 	branch_iterator.ForEach(func(branch *git.Branch, btype git.BranchType) error {
-		comp := NewComparison(repo, base_oid, branch)
+		comp := NewComparison(repo, base_oid, branch, store)
 		comparisons = append(comparisons, comp)
 		return nil
 	})
@@ -208,24 +247,26 @@ func main() {
 	sort.Sort(ComparisonsByWhen(comparisons))
 
 	for _, comp := range comparisons {
+		comp.Execute()
+
 		merged_string := ""
-		if comp.IsMerged() {
+		if comp.IsMerged {
 			merged_string = "(merged)"
 		}
 
-		if opts.Ahead != -1 && opts.Ahead != comp.Ahead() {
+		if opts.Ahead != -1 && opts.Ahead != comp.Ahead {
 			continue
 		}
 
-		if opts.Behind != -1 && opts.Behind != comp.Behind() {
+		if opts.Behind != -1 && opts.Behind != comp.Behind {
 			continue
 		}
 
-		if opts.Merged && !comp.IsMerged() {
+		if opts.Merged && !comp.IsMerged {
 			continue
 		}
 
-		if opts.NoMerged && comp.IsMerged() {
+		if opts.NoMerged && comp.IsMerged {
 			continue
 		}
 
@@ -235,11 +276,13 @@ func main() {
 			comp.Color(),
 			comp.FormattedWhen(),
 			comp.Name(),
-			comp.Behind(),
-			comp.Ahead(),
+			comp.Behind,
+			comp.Ahead,
 			merged_string)
+
+		store[comp.CacheKey()] = comp
 	}
 
-	// @todo store all comparisons in a list that can be sorted before printing.
-	// @todo filter them things
+	store.WriteToFile()
+
 }
