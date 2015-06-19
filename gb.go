@@ -285,7 +285,7 @@ func main() {
 		}
 
 		fmt.Printf(
-			"%s%s | %-30s           | behind: %4d | ahead: %4d %s",
+			"%s%s | %-30s           | behind: %4d | ahead: %4d %s\n",
 			comp.ColorCode(),
 			comp.FormattedWhen(),
 			comp.Name(),
