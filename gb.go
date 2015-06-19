@@ -27,17 +27,17 @@ const (
 	CachePath = ".git/go_gb_cache.json"
 )
 
-// @todo Always append \n to msg.
-func exit(msg string, args ...string) {
-	fmt.Printf(msg, args)
+func exit(msg string, args ...interface{}) {
+	msg = fmt.Sprintf(msg, args...)
+	fmt.Println(msg)
 	os.Exit(1)
 }
 
 func NewRepo() *git.Repository {
 	repo, err := git.OpenRepository(".")
 	if err != nil {
-		// @todo improve message
-		exit("Could not open repository at '.'\n")
+		wd, _ := os.Getwd()
+		exit("Could not open repository at '%s'", wd)
 	}
 	return repo
 }
@@ -45,8 +45,8 @@ func NewRepo() *git.Repository {
 func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
 	i, err := repo.NewBranchIterator(git.BranchLocal)
 	if err != nil {
-		// @todo improve message
-		exit("Can't list branches\n")
+		wd, _ := os.Getwd()
+		exit("Failed to list branches for '%s'", wd)
 	}
 	return i
 }
@@ -54,7 +54,7 @@ func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
 func LookupBaseOid(repo *git.Repository) *git.Oid {
 	base_branch, err := repo.LookupBranch(BaseBranch, git.BranchLocal)
 	if err != nil {
-		exit("Error looking up %s\n", BaseBranch)
+		exit("Error looking up '%s'", BaseBranch)
 	}
 
 	return base_branch.Target()
@@ -98,7 +98,7 @@ func NewComparison(repo *git.Repository, base_oid *git.Oid, branch *git.Branch, 
 func (c *Comparison) Name() string {
 	name, err := c.Branch.Name()
 	if err != nil {
-		exit("Can't get branch name\n")
+		exit("Can't get branch name for '%s'", c.Oid)
 	}
 	return name
 }
@@ -106,7 +106,7 @@ func (c *Comparison) Name() string {
 func (c *Comparison) IsHead() bool {
 	head, err := c.Branch.IsHead()
 	if err != nil {
-		exit("Can't get IsHead\n")
+		exit("Can't get IsHead for '%s'", c.Name())
 	}
 	return head
 }
@@ -152,7 +152,7 @@ func (c *Comparison) SetIsMerged() {
 	} else {
 		merged, err := c.Repo.DescendantOf(c.BaseOid, c.Oid)
 		if err != nil {
-			exit("Could not get descendant of '%s' and '%s'.\n", c.BaseOid.String(), c.Oid.String())
+			exit("Could not get descendant of '%s' and '%s'.", c.BaseOid.String(), c.Oid.String())
 		}
 		c.IsMerged = merged
 	}
@@ -162,7 +162,7 @@ func (c *Comparison) SetAheadBehind() {
 	var err error
 	c.Ahead, c.Behind, err = c.Repo.AheadBehind(c.Oid, c.BaseOid)
 	if err != nil {
-		exit("Error getting ahead/behind\n", c.BaseOid.String())
+		exit("Error getting ahead/behind", c.BaseOid.String())
 	}
 }
 
@@ -222,14 +222,15 @@ func NewCacheStore() CacheStore {
 	}
 
 	y := make(CacheStore)
-	json.Unmarshal(bits, &y)
+	_ = json.Unmarshal(bits, &y)
+
 	return y
 }
 
 func (store *CacheStore) WriteToFile() error {
 	b, err := json.Marshal(store)
 	if err != nil {
-		fmt.Printf("Could not save cache to file.\n")
+		fmt.Printf("Could not save cache to file.")
 	}
 	ioutil.WriteFile(CachePath, b, 0644)
 	return nil
