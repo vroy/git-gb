@@ -12,15 +12,16 @@ import (
 	ioutil "io/ioutil"
 
 	git "github.com/libgit2/git2go"
+	"github.com/mgutz/ansi"
 )
 
-type ColorType string
+var (
+	Red    string = ansi.ColorCode("red")
+	Yellow        = ansi.ColorCode("yellow")
+	Green         = ansi.ColorCode("green")
+)
 
 const (
-	Red    ColorType = "\x1b[0;31m"
-	Yellow           = "\x1b[0;33m"
-	Green            = "\x1b[0;32m"
-
 	BaseBranch string = "master"
 
 	CachePath = ".git/go_gb_cache.json"
@@ -113,15 +114,19 @@ func (c *Comparison) IsHead() bool {
 func (c *Comparison) Commit() *git.Commit {
 	commit, err := c.Repo.LookupCommit(c.Oid)
 	if err != nil {
-		exit("Could not lookup commit '%s'.\n", c.Oid.String())
+		exit("Could not lookup commit '%s'.", c.Oid.String())
 	}
 	return commit
 }
 
-// @todo red for old commits
-func (c *Comparison) Color() ColorType {
+func (c *Comparison) ColorCode() string {
+	hours, _ := time.ParseDuration("336h") // two weeks
+	two_weeks := time.Now().Add(-hours)
+
 	if c.IsHead() {
 		return Green
+	} else if c.When().Before(two_weeks) {
+		return Red
 	} else {
 		return Yellow
 	}
@@ -278,10 +283,9 @@ func main() {
 			continue
 		}
 
-		// continue
 		fmt.Printf(
-			"%s%s | %-30s           | behind: %4d | ahead: %4d %s\n",
-			comp.Color(),
+			"%s%s | %-30s           | behind: %4d | ahead: %4d %s",
+			comp.ColorCode(),
 			comp.FormattedWhen(),
 			comp.Name(),
 			comp.Behind,
