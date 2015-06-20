@@ -16,14 +16,6 @@ The output is sorted in chronological order - your last modified branches appear
 
 ## Installation
 
-The install script will do its best to install dependencies before compiling.
-
-    curl -sSL https://raw.githubusercontent.com/vroy/gb/master/install | bash
-
-Or alternatively, after making sure that [cmake](http://www.cmake.org/) is installed:
-
-    git clone git@github.com:vroy/gb.git
-    cd gb
-    make deps
-    make
-    sudo make install
+    brew install go
+    brew install libgit2
+    go get github.com/vroy/gb
