@@ -40,9 +40,3 @@ Also make sure that `$GOPATH/bin` is in your `$PATH`
 ```
 go get github.com/vroy/git-gb
 ```
-
-*Add a git alias:*
-
-```
-git config --global alias.b gb
-```
