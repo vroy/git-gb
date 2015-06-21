@@ -1,21 +1,48 @@
-# git-gb: good branches
+# git-gb
 
-List local branches with additional information similar to the GitHub branches view.
+`git-gb` is a better way to list git branches in your terminal. Inspired by the GitHub branches view, the output
 
-* the timestamp of the last revision
-* branch name
-* number of revisions behind master
-* number of revisions ahead of master
+- is sorted by timestamp of the last commit for each branch
+- shows how many commits a branch is ahead/behind of master
+- whether a branch is merged or not
 
-The output is sorted in chronological order - your last modified branches appear at the bottom of your prompt so you don't have to scroll.
+Sample output:
 
-    ~/c/gb:master$ git gb
-    2014-11-22 20:54PM | foobar                   | behind:   15 | ahead:    2
-    2014-11-24 21:18PM | readme                   | behind:    0 | ahead:    1
+```
+~/c/gb:master$ gb
+2014-11-22 20:54PM | foobar                   | behind:   15 | ahead:    2
+2014-11-24 21:18PM | readme                   | behind:    0 | ahead:    1
+```
+
+## Usage
+
+See `git gb -help` for available options.
 
 
 ## Installation
 
-    brew install go
-    brew install libgit2
-    go get github.com/vroy/git-gb
+### Mac
+
+*Install dependencies:*
+
+```
+brew install go libgit2
+```
+
+*Configure dependencies:*
+
+Make sure that `$GOPATH` is set. For more details see: `go help gopath`.
+
+Also make sure that `$GOPATH/bin` is in your `$PATH`
+
+*Install git-gb:*
+
+```
+go get github.com/vroy/git-gb
+```
+
+*Add a git alias:*
+
+```
+git config --global alias.b gb
+```
