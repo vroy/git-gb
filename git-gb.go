@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	ioutil "io/ioutil"
 
@@ -177,6 +178,18 @@ func (c *Comparison) Execute() {
 
 type Comparisons []*Comparison
 
+func (cs Comparisons) MaxBranchLength() int {
+	max := 30
+
+	for _, comp := range cs {
+		length := utf8.RuneCountInString(comp.Name())
+		if length > max {
+			max = length
+		}
+	}
+	return max
+}
+
 type ComparisonsByWhen Comparisons
 
 func (a ComparisonsByWhen) Len() int {
@@ -260,6 +273,8 @@ func main() {
 
 	sort.Sort(ComparisonsByWhen(comparisons))
 
+	branch_length := comparisons.MaxBranchLength()
+
 	for _, comp := range comparisons {
 		comp.Execute()
 
@@ -285,9 +300,10 @@ func main() {
 		}
 
 		fmt.Printf(
-			"%s%s | %-30s           | behind: %4d | ahead: %4d %s\n",
+			"%s%s | %-*s | behind: %4d | ahead: %4d %s\n",
 			comp.ColorCode(),
 			comp.FormattedWhen(),
+			branch_length, // http://stackoverflow.com/a/28870241
 			comp.Name(),
 			comp.Behind,
 			comp.Ahead,
