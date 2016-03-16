@@ -23,8 +23,6 @@ var (
 )
 
 const (
-	BaseBranch string = "master"
-
 	CachePath = ".git/go_gb_cache.json"
 )
 
@@ -52,10 +50,10 @@ func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
 	return i
 }
 
-func LookupBaseOid(repo *git.Repository) *git.Oid {
-	base_branch, err := repo.LookupBranch(BaseBranch, git.BranchLocal)
+func LookupBaseOid(repo *git.Repository, baseBranchName string) *git.Oid {
+	base_branch, err := repo.LookupBranch(baseBranchName, git.BranchLocal)
 	if err != nil {
-		exit("Error looking up '%s'", BaseBranch)
+		exit("Error looking up base branch '%s'", baseBranchName)
 	}
 
 	return base_branch.Target()
@@ -260,7 +258,7 @@ func main() {
 
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
-	base_oid := LookupBaseOid(repo)
+	base_oid := LookupBaseOid(repo, "master")
 
 	comparisons := make(Comparisons, 0)
 
