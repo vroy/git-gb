@@ -208,6 +208,7 @@ type Options struct {
 	Merged     bool
 	NoMerged   bool
 	ClearCache bool
+	BaseBranch string
 }
 
 func NewOptions() *Options {
@@ -218,6 +219,7 @@ func NewOptions() *Options {
 	flag.BoolVar(&o.Merged, "merged", false, "only show branches that are merged.")
 	flag.BoolVar(&o.NoMerged, "no-merged", false, "only show branches that are not merged.")
 	flag.BoolVar(&o.ClearCache, "clear-cache", false, "clear cache of comparisons.")
+	flag.StringVar(&o.BaseBranch, "base", "master", "base branch to make comparisons against.")
 
 	flag.Parse()
 
@@ -258,7 +260,7 @@ func main() {
 
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
-	base_oid := LookupBaseOid(repo, "master")
+	base_oid := LookupBaseOid(repo, opts.BaseBranch)
 
 	comparisons := make(Comparisons, 0)
 
@@ -275,6 +277,16 @@ func main() {
 
 	for _, comp := range comparisons {
 		comp.Execute()
+
+		if comp.Name() == opts.BaseBranch {
+			fmt.Printf(
+				"%s%s * %-*s\n",
+				comp.ColorCode(),
+				comp.FormattedWhen(),
+				branch_length, // http://stackoverflow.com/a/28870241
+				comp.Name())
+			continue
+		}
 
 		merged_string := ""
 		if comp.IsMerged {
