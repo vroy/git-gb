@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	ioutil "io/ioutil"
 
+	"github.com/codegangsta/cli"
 	git "github.com/libgit2/git2go"
 	"github.com/mgutz/ansi"
 )
@@ -20,11 +20,11 @@ var (
 	Red    string = ansi.ColorCode("red")
 	Yellow        = ansi.ColorCode("yellow")
 	Green         = ansi.ColorCode("green")
+	Reset         = ansi.ColorCode("reset")
+	Bold          = ansi.ColorCode("reset+b")
 )
 
-const (
-	CachePath = ".git/go_gb_cache.json"
-)
+const CachePath = ".git/go_gb_cache.json"
 
 func exit(msg string, args ...interface{}) {
 	msg = fmt.Sprintf(msg, args...)
@@ -202,30 +202,6 @@ func (a ComparisonsByWhen) Less(i, j int) bool {
 	return a[i].When().Unix() < a[j].When().Unix()
 }
 
-type Options struct {
-	Ahead      int
-	Behind     int
-	Merged     bool
-	NoMerged   bool
-	ClearCache bool
-	BaseBranch string
-}
-
-func NewOptions() *Options {
-	o := new(Options)
-
-	flag.IntVar(&o.Ahead, "ahead", -1, "only show branches that are <ahead> commits ahead.")
-	flag.IntVar(&o.Behind, "behind", -1, "only show branches that are <behind> commits behind.")
-	flag.BoolVar(&o.Merged, "merged", false, "only show branches that are merged.")
-	flag.BoolVar(&o.NoMerged, "no-merged", false, "only show branches that are not merged.")
-	flag.BoolVar(&o.ClearCache, "clear-cache", false, "clear cache of comparisons.")
-	flag.StringVar(&o.BaseBranch, "base", "master", "base branch to make comparisons against.")
-
-	flag.Parse()
-
-	return o
-}
-
 type CacheStore map[string]*Comparison
 
 func NewCacheStore() CacheStore {
@@ -249,10 +225,13 @@ func (store *CacheStore) WriteToFile() error {
 	return nil
 }
 
-func main() {
-	opts := NewOptions()
+func run(ctx *cli.Context) {
+	baseBranch := "master"
+	if len(ctx.Args()) > 0 {
+		baseBranch = ctx.Args().First()
+	}
 
-	if opts.ClearCache {
+	if ctx.Bool("clear-cache") {
 		os.Remove(CachePath)
 	}
 
@@ -260,7 +239,7 @@ func main() {
 
 	repo := NewRepo()
 	branch_iterator := NewBranchIterator(repo)
-	base_oid := LookupBaseOid(repo, opts.BaseBranch)
+	base_oid := LookupBaseOid(repo, baseBranch)
 
 	comparisons := make(Comparisons, 0)
 
@@ -278,9 +257,10 @@ func main() {
 	for _, comp := range comparisons {
 		comp.Execute()
 
-		if comp.Name() == opts.BaseBranch {
+		if comp.Name() == baseBranch {
 			fmt.Printf(
-				"%s%s * %-*s\n",
+				"%s%s%s * %-*s\n",
+				Bold,
 				comp.ColorCode(),
 				comp.FormattedWhen(),
 				branch_length, // http://stackoverflow.com/a/28870241
@@ -293,24 +273,25 @@ func main() {
 			merged_string = "(merged)"
 		}
 
-		if opts.Ahead != -1 && opts.Ahead != comp.Ahead {
+		if ctx.Int("ahead") != -1 && ctx.Int("ahead") != comp.Ahead {
 			continue
 		}
 
-		if opts.Behind != -1 && opts.Behind != comp.Behind {
+		if ctx.Int("behind") != -1 && ctx.Int("behind") != comp.Behind {
 			continue
 		}
 
-		if opts.Merged && !comp.IsMerged {
+		if ctx.Bool("merged") && !comp.IsMerged {
 			continue
 		}
 
-		if opts.NoMerged && comp.IsMerged {
+		if ctx.Bool("no-merged") && comp.IsMerged {
 			continue
 		}
 
 		fmt.Printf(
-			"%s%s | %-*s | behind: %4d | ahead: %4d %s\n",
+			"%s%s%s | %-*s | behind: %4d | ahead: %4d %s\n",
+			Reset,
 			comp.ColorCode(),
 			comp.FormattedWhen(),
 			branch_length, // http://stackoverflow.com/a/28870241
@@ -323,5 +304,22 @@ func main() {
 	}
 
 	store.WriteToFile()
+}
 
+func main() {
+	app := cli.NewApp()
+	app.Name = "gb"
+	app.Usage = "A better way to list git branches in your terminal."
+	app.Version = "1.0.0"
+	app.Action = run
+
+	app.Flags = []cli.Flag{
+		cli.IntFlag{Name: "ahead", Value: -1, Usage: "only show branches that are <ahead> commits ahead."},
+		cli.IntFlag{Name: "behind", Value: -1, Usage: "only show branches that are <behind> commits behind."},
+		cli.BoolFlag{Name: "merged", Usage: "only show branches that are merged."},
+		cli.BoolFlag{Name: "no-merged", Usage: "only show branches that are not merged."},
+		cli.BoolFlag{Name: "clear-cache", Usage: "clear cache of comparisons."},
+	}
+
+	app.Run(os.Args)
 }
