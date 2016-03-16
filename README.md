@@ -9,7 +9,7 @@
 Sample output:
 
 ```
-~/c/gb:master$ gb
+~/c/gb:master$ git gb
 2014-11-22 20:54PM | foobar                   | behind:   15 | ahead:    2
 2014-11-24 21:18PM | readme                   | behind:    0 | ahead:    1
 ```
