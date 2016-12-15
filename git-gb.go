@@ -33,12 +33,23 @@ func exit(msg string, args ...interface{}) {
 }
 
 func NewRepo() *git.Repository {
-	repo, err := git.OpenRepository(".")
-	if err != nil {
-		wd, _ := os.Getwd()
-		exit("Could not open repository at '%s'", wd)
+	for {
+		wd, err := os.Getwd()
+		if err != nil {
+			exit("Error getting current directory: %s", err)
+		}
+
+		if wd == "/" {
+			exit("Could not open repository")
+		}
+
+		repo, err := git.OpenRepository(wd)
+		if err != nil {
+			os.Chdir("..")
+			continue
+		}
+		return repo
 	}
-	return repo
 }
 
 func NewBranchIterator(repo *git.Repository) *git.BranchIterator {
