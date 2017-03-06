@@ -12,7 +12,7 @@ import (
 	ioutil "io/ioutil"
 
 	"github.com/codegangsta/cli"
-	git "github.com/libgit2/git2go"
+	git "gopkg.in/libgit2/git2go.v25"
 	"github.com/mgutz/ansi"
 )
 
