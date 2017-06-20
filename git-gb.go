@@ -11,9 +11,9 @@ import (
 
 	ioutil "io/ioutil"
 
-	"github.com/codegangsta/cli"
-	git "gopkg.in/libgit2/git2go.v25"
 	"github.com/mgutz/ansi"
+	"github.com/urfave/cli"
+	git "gopkg.in/libgit2/git2go.v25"
 )
 
 var (
@@ -236,7 +236,7 @@ func (store *CacheStore) WriteToFile() error {
 	return nil
 }
 
-func run(ctx *cli.Context) {
+func run(ctx *cli.Context) error {
 	baseBranch := "master"
 	if len(ctx.Args()) > 0 {
 		baseBranch = ctx.Args().First()
@@ -315,6 +315,8 @@ func run(ctx *cli.Context) {
 	}
 
 	store.WriteToFile()
+
+	return nil
 }
 
 func main() {
