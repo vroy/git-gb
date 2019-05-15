@@ -13,7 +13,7 @@ import (
 
 	"github.com/mgutz/ansi"
 	"github.com/urfave/cli"
-	git "gopkg.in/libgit2/git2go.v26"
+	git "gopkg.in/libgit2/git2go.v27"
 )
 
 var (
