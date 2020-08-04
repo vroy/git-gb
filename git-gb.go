@@ -11,9 +11,9 @@ import (
 
 	ioutil "io/ioutil"
 
+	git "github.com/libgit2/git2go/v30"
 	"github.com/mgutz/ansi"
 	"github.com/urfave/cli"
-	git "gopkg.in/libgit2/git2go.v27"
 )
 
 var (
