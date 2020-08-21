@@ -18,6 +18,13 @@ Sample output:
 
 See `git gb -help` for available options.
 
+## Default branch
+
+By default, `git gb` will run the comparison against these in order of first found:
+
+* The CLI argument: `git gb some-base-branch`
+* The `init.defaultBranch` value found in git's configuration (global or per repository)
+* Fallback to `main` if not configured above
 
 ## Installation
 
