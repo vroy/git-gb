@@ -340,7 +340,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "gb"
 	app.Usage = "A better way to list git branches in your terminal."
-	app.Version = "1.1.0"
+	app.Version = "1.2.0"
 	app.Action = run
 
 	app.Flags = []cli.Flag{
