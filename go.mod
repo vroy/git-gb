@@ -1,4 +1,4 @@
-module git-gb
+module github.com/vroy/git-gb
 
 go 1.14
 
