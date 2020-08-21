@@ -236,12 +236,27 @@ func (store *CacheStore) WriteToFile() error {
 	return nil
 }
 
-func run(ctx *cli.Context) error {
-	baseBranch := "master"
-	if len(ctx.Args()) > 0 {
-		baseBranch = ctx.Args().First()
+func computeBaseBranch(repo *git.Repository, args cli.Args) string {
+	fallback := "main"
+
+	if len(args) > 0 {
+		return args.First()
 	}
 
+	config, err := repo.Config()
+	if err != nil {
+		return fallback
+	}
+
+	defaultBranch, err := config.LookupString("init.defaultBranch")
+	if err != nil {
+		return fallback
+	}
+
+	return defaultBranch
+}
+
+func run(ctx *cli.Context) error {
 	if ctx.Bool("clear-cache") {
 		os.Remove(CachePath)
 	}
@@ -249,6 +264,8 @@ func run(ctx *cli.Context) error {
 	store := NewCacheStore()
 
 	repo := NewRepo()
+
+	baseBranch := computeBaseBranch(repo, ctx.Args())
 	branch_iterator := NewBranchIterator(repo)
 	base_oid := LookupBaseOid(repo, baseBranch)
 
