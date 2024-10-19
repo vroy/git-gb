@@ -11,7 +11,7 @@ import (
 
 	ioutil "io/ioutil"
 
-	git "github.com/libgit2/git2go/v30"
+	git "github.com/libgit2/git2go/v34"
 	"github.com/mgutz/ansi"
 	"github.com/urfave/cli"
 )
